@@ -44,16 +44,15 @@ def crear_basedatos(dbname):
         if 'conn' in locals():
             conn.close()
 
-def guardar_registros(df, table_name, dbname=DB_NAME, lowercase_text=True):
+def guardar_registros(df, table_name, dbname=DB_NAME, n_registros=None):
     """
     Carga un DataFrame de pandas a una tabla de PostgreSQL.
-    Crea la base de datos si no existe.
     
     Args:
         df (pd.DataFrame): DataFrame con los datos a cargar
         table_name (str): Nombre de la tabla destino
-        dbname (str): Nombre de la base de datos
-        lowercase_text (bool): Convertir texto a minúsculas
+        dbname (str): Nombre de la base de datos        
+        n_registros (int): Número de registros a cargar (None para todos)
     """
     try:
         # 1. Crear la base de datos si no existe
@@ -62,20 +61,20 @@ def guardar_registros(df, table_name, dbname=DB_NAME, lowercase_text=True):
         # 2. Configuración de conexión con la base de datos específica
         db_config = {**BASE_CONFIG, 'database': dbname}
         
-        # 3. Preprocesamiento del DataFrame
-        if lowercase_text:
-            text_cols = df.select_dtypes(include=['object']).columns
-            df[text_cols] = df[text_cols].apply(lambda x: x.str.lower())
+        # 3. Filtrar registros si se especifica n_registros
+        if n_registros is not None:
+            df = df.head(n_registros)
+            print(f"⚠️ Se cargarán solo los primeros {n_registros} registros")
         
-        # 4. Conectar y cargar datos
+        # Resto del código permanece igual...
         with psycopg2.connect(**db_config) as conn:
             with conn.cursor() as cursor:
                 conn.autocommit = False
                 
-                # 5. Crear tabla (si no existe)
+                # Crear tabla (si no existe)
                 columns = []
                 for col, dtype in df.dtypes.items():
-                    col_clean = col.replace(' ', '_').lower()  # Limpia nombres
+                    col_clean = col.replace(' ', '_').lower()
                     if pd.api.types.is_integer_dtype(dtype):
                         pg_type = 'BIGINT'
                     elif pd.api.types.is_float_dtype(dtype):
@@ -96,7 +95,7 @@ def guardar_registros(df, table_name, dbname=DB_NAME, lowercase_text=True):
                 
                 cursor.execute(create_query)
                 
-                # 6. Cargar datos usando COPY
+                # Cargar datos usando COPY
                 buffer = StringIO()
                 df.to_csv(buffer, index=False, header=False, sep='\t', na_rep='NULL')
                 buffer.seek(0)
@@ -115,13 +114,16 @@ def guardar_registros(df, table_name, dbname=DB_NAME, lowercase_text=True):
             conn.rollback()
         raise
 
-# Ejemplo de uso:
-if __name__ == "__main__":
+# Ejecutar programa
+if __name__ == "__main__":    
     # Ruta de acceso a los datos
     csv_path = 'Global_Cybersecurity_Threats_2015-2024.csv'
 
     # Especificamos el separador
     threats = pd.read_csv(csv_path, sep=',')
     
-    # Llamar a la función
-    guardar_registros(threats, 'cyber_threats', lowercase_text=True)
+    # Cargar todos los registros
+    guardar_registros(threats, 'cyber_threats')
+
+    # Cargar los registros especificados en n_registros
+    guardar_registros(threats, 'cyber_threats', n_registros=10)
