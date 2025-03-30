@@ -123,7 +123,7 @@ if __name__ == "__main__":
     threats = pd.read_csv(csv_path, sep=',')
     
     # Cargar todos los registros
-    guardar_registros(threats, 'cyber_threats')
+    #guardar_registros(threats, 'cyber_threats')
 
     # Cargar los registros especificados en n_registros
     guardar_registros(threats, 'cyber_threats', n_registros=10)
